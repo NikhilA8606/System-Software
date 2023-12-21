@@ -2,73 +2,146 @@
 #include <stdlib.h>
 #include <string.h>
 
-void main()
+void display();
+
+int main()
 {
-    FILE *fint, *ftab, *flen, *fsym;
-    int op1[10], textlen, textlen1, i, j = 0, len;
-    char add[5], locctr[5], mnemonic[5], start[10], temp[30], line[20], label[20], opcode[10], operand[10], symbol[10], code[10];
-    fint = fopen("input.txt", "r");
-    flen = fopen("length.txt", "r");
-    ftab = fopen("optab.txt", "r");
-    fsym = fopen("symtab.txt", "r");
-    fscanf(fint, "%s%s%s%s", add, label, opcode, operand);
-    if (strcmp(opcode, "START") == 0)
-    {
-        strcpy(start, operand);
-        fscanf(flen, "%d", &len);
-    }
-    printf("H^%s^%s^%d\nT^00%s^", label, start, len, start);
-    fscanf(fint, "%s%s%s%s", add, label, opcode, operand);
+    char a[10], ad[10], label[10], opcode[10], operand[10], symbol[10];
+    int start, diff, i, address, add, len, actual_len, finaddr, j = 0;
+    char mnemonic[15][15] = {"LDA", "STA", "LDCH", "STCH"};
+    char code[15][15] = {"33", "44", "53", "57"};
+
+    FILE *fp1, *fp2, *fp3, *fp4;
+    fp1 = fopen("output.txt", "w");
+    fp2 = fopen("symtab.txt", "r");
+    fp3 = fopen("intermediate.txt", "r");
+    fp4 = fopen("objcode.txt", "w");
+
+    fscanf(fp3, "%s\t%s\t%s", label, opcode, operand);
+
     while (strcmp(opcode, "END") != 0)
     {
-        fscanf(ftab, "%s%s", code, mnemonic);
-        while (!feof(ftab))
-        {
-            if (strcmp(opcode, code) == 0)
-            {
-                fclose(ftab);
-                fscanf(fsym, "%s%s", locctr, symbol);
-                while (!feof(fsym))
-                {
-                    if (strcmp(operand, symbol) == 0)
-                    {
-                        printf("%s%s^", mnemonic, locctr);
-                        break;
-                    }
-                    else
-                    {
-                        fscanf(fsym, "%s%s", locctr, symbol);
-                    }
-                }
-                break;
-            }
-            else
-            {
-                fscanf(ftab, "%s%s", code, mnemonic);
-            }
-        }
-        
-            if (strcmp(opcode, "WORD") == 0)
-            {
-                printf("0000%s^", operand);
-            }
-            else if (strcmp(operand, "BYTE") == 0)
-            {
-                len = strlen(operand);
-                for (i = 2; i < len; i++)
-                {
-                    printf("%d", operand[i]);
-                }
-                printf("^");
-            }
-        
-        fscanf(fint, "%s%s%s%s", add, label, opcode, operand);
-        ftab = fopen("optab.txt", "r");
-        fseek(ftab, SEEK_SET, 0);
+
+        fscanf(fp3, "%d%s%s%s", &address, label, opcode, operand);
     }
-    printf("\nE^00%s", start);
-    fclose(fint);
-    fclose(ftab);
-    fclose(fsym);
-    fclose(flen);
+    finaddr = address;
+
+    fclose(fp3);
+    fp3 = fopen("intermediate.txt", "r");
+
+    fscanf(fp3, "\t%s\t%s\t%s", label, opcode, operand);
+    if (strcmp(opcode, "START") == 0)
+    {
+        fprintf(fp1, "\t%s\t%s\t%s\n", label, opcode, operand);
+        fprintf(fp4, "H^%s^00%s^00%d\n", label, operand, finaddr);
+        fscanf(fp3, "%d%s%s%s", &address, label, opcode, operand);
+        start = address;
+        diff = finaddr - start;
+        fprintf(fp4, "T^00%d^%d", address, diff);
+    }
+
+    while (strcmp(opcode, "END") != 0)
+    {
+        if (strcmp(opcode, "BYTE") == 0)
+        {
+            fprintf(fp1, "%d\t%s\t%s\t%s\t", address, label, opcode, operand);
+            len = strlen(operand);
+            actual_len = len - 3;
+            fprintf(fp4, "^");
+            for (i = 2; i < (actual_len + 2); i++)
+            {
+                sprintf(ad, "%02X", operand[i]);
+                fprintf(fp1, "%s", ad);
+                fprintf(fp4, "%s", ad);
+            }
+            fprintf(fp1, "\n");
+        }
+        else if (strcmp(opcode, "WORD") == 0)
+        {
+
+            sprintf(a, "%06X", atoi(operand));
+            fprintf(fp1, "%d\t%s\t%s\t%s\t%s\n", address, label, opcode, operand, a);
+            fprintf(fp4, "^%s", a);
+        }
+        else if ((strcmp(opcode, "RESB") == 0) || (strcmp(opcode, "RESW") == 0))
+        {
+            fprintf(fp1, "%d\t%s\t%s\t%s\n", address, label, opcode, operand);
+        }
+        else
+        {
+            // while (strcmp(opcode, mnemonic[j]) != 0)
+            //     j++;
+
+            // {
+            //     rewind(fp2);
+            //     fscanf(fp2, "%s%d", symbol, &add);
+            //     while (strcmp(operand, symbol) != 0)
+            //         fscanf(fp2, "%s%d", symbol, &add);
+            //     fprintf(fp1, "%d\t%s\t%s\t%s\t%s%d\n", address, label, opcode, operand, code[j], add);
+            //     fprintf(fp4, "^%s%d", code[j], add);
+            // }
+        }
+
+        fscanf(fp3, "%d%s%s%s", &address, label, opcode, operand);
+    }
+
+    fprintf(fp1, "%d\t%s\t%s\t%s\n", address, label, opcode, operand);
+    fprintf(fp4, "\nE^00%d", start);
+
+    fclose(fp4);
+    fclose(fp3);
+    fclose(fp2);
+    fclose(fp1);
+
+    display();
+
+    return 0;
+}
+
+void display()
+{
+    char ch;
+    FILE *fp1, *fp2, *fp3, *fp4;
+
+    printf("\nIntermediate file is converted into object code");
+
+    printf("\n\nThe contents of Intermediate file:\n\n");
+    fp3 = fopen("intermediate.txt", "r");
+    ch = fgetc(fp3);
+    while (ch != EOF)
+    {
+        printf("%c", ch);
+        ch = fgetc(fp3);
+    }
+    fclose(fp3);
+
+    printf("\n\nThe contents of Symbol Table :\n\n");
+    fp2 = fopen("symtab.txt", "r");
+    ch = fgetc(fp2);
+    while (ch != EOF)
+    {
+        printf("%c", ch);
+        ch = fgetc(fp2);
+    }
+    fclose(fp2);
+
+    printf("\n\nThe contents of Output file :\n\n");
+    fp1 = fopen("output.txt", "r");
+    ch = fgetc(fp1);
+    while (ch != EOF)
+    {
+        printf("%c", ch);
+        ch = fgetc(fp1);
+    }
+    fclose(fp1);
+
+    printf("\n\nThe contents of Object code file :\n\n");
+    fp4 = fopen("objcode.txt", "r");
+    ch = fgetc(fp4);
+    while (ch != EOF)
+    {
+        printf("%c", ch);
+        ch = fgetc(fp4);
+    }
+    fclose(fp4);
 }
